@@ -24,6 +24,13 @@ services:
     image: tecnativa/docker-socket-proxy
     environment:
       CONTAINERS: 1
+      NETWORKS: 1
+      SERVICES: 1
+      SWARM: 1
+      TASKS: 1
+      VOLUMES: 1
+      SECRETS: 1
+      CONFIGS: 1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     deploy:
