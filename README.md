@@ -41,7 +41,7 @@ services:
   whoami:
     image: containous/whoami
     labels:
-      - "traefik.http.routers.whoami.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.local`)"
       - "traefik.http.routers.whoami.entrypoints=web"
     deploy:
       replicas: 2
