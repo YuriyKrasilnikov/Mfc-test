@@ -1,11 +1,11 @@
 # traefik-swarm-example
 ```
-version: '3.7'
+version: '3.9'
 
 networks:
   dockerproxy:
     internal: true
-    attachable: true
+    attachable: false
     name: dockerproxy
   backend:
     internal: true
@@ -13,7 +13,7 @@ networks:
     name: backend
   api:
     internal: false
-    attachable: true
+    attachable: false
     name: api
 
 
@@ -21,34 +21,60 @@ services:
   traefik:
     depends_on:
       - dockerproxy
-    image: traefik
+    image: "traefik:${TFKVER:-v2.11.8}"
+    volumes:
+      - /data/traefik/certs:/letsencrypt
     command:
       - --log.level=DEBUG
       - --accesslog=true
-      - --api.insecure=true
+
       - --providers.docker=true
       - --providers.docker.swarmmode=true
       - --providers.docker.network=backend
       - --providers.docker.endpoint=tcp://dockerproxy:2375
       - --providers.docker.exposedByDefault=false
+
       - --entrypoints.web.address=:80
+
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --entrypoints.websecure.http.tls.certresolver=dev
+
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+
+      - --certificatesresolvers.devdeeray.acme.tlschallenge=true
+      - --certificatesresolvers.devdeeray.acme.storage=/letsencrypt/acme.json
     ports:
       - 80:80
-      - 8080:8080
+      - 443:443
     deploy:
       placement:
         constraints:
           #- node.labels.type == app
-          - node.role==manager
+          - node.role==balancer
+      resources:
+        # limits:
+        #   cpus: "1.0"
+        #   memory: "2G"
+        reservations:
+          cpus: "0.5"
+        # memory: "1G"
     networks:
       - dockerproxy
       - backend
       - api
+    logging:
+      driver: json-file
+      options:
+        max-size: "15m"
+        max-file: "5"
 
   dockerproxy:
-    image: tecnativa/docker-socket-proxy
+    image: tecnativa/docker-socket-proxy:latest
     environment:
-      - LOG_LEVEL=info # debug,info,notice,warning,err,crit,alert,emerg
+      # - LOG_LEVEL=info # debug,info,notice,warning,err,crit,alert,emerg
       ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
       # 0 to revoke access.
       # 1 to grant access.
@@ -85,9 +111,21 @@ services:
       placement:
         constraints:
           #- node.labels.type == app
-          - node.role==manager
+          - node.role==balancer
+      resources:
+        # limits:
+        #   cpus: "1.0"
+        #   memory: "2G"
+        reservations:
+          cpus: "1"
+        # memory: "1G"
     networks:
       - dockerproxy
+    logging:
+      driver: json-file
+      options:
+        max-size: "15m"
+        max-file: "5"
 
   whoami:
     image: traefik/whoami
